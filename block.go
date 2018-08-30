@@ -28,3 +28,7 @@ func NewBlock(data string, prev_hash []byte) *Block {
 
 	return block
 }
+
+func NewGenesisBlock() *Block {
+	return NewBlock("Genesis Block", []byte{})
+}
