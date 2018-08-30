@@ -8,7 +8,7 @@ import (
 	"math/big"
 )
 
-const targetBits = 24
+const targetBits = 16 // defines how hard it is to add a new block
 const maxNonce = math.MaxInt64
 
 type ProofOfWork struct {

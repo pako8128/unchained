@@ -1,9 +1,6 @@
 package unchained
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"strconv"
 	"time"
 )
 
@@ -12,19 +9,15 @@ type Block struct {
 	Data      []byte
 	PrevHash  []byte
 	Hash      []byte
-}
-
-func (b *Block) SetHash() {
-	timestamp := []byte(strconv.FormatInt(b.Timestamp, 10))
-	data := bytes.Join([][]byte{b.PrevHash, b.Data, timestamp}, []byte{})
-	hash := sha256.Sum256(data)
-
-	b.Hash = hash[:]
+	Nonce     int
 }
 
 func NewBlock(data string, prev_hash []byte) *Block {
-	block := &Block{time.Now().Unix(), []byte(data), prev_hash, []byte{}}
-	block.SetHash()
+	block := &Block{time.Now().Unix(), []byte(data), prev_hash, []byte{}, 0}
+	pow := NewProofOfWork(block)
+	nonce, hash := pow.Run()
+	block.Hash = hash
+	block.Nonce = nonce
 
 	return block
 }
