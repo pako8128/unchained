@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/boltdb/bolt"
+	"log"
 	"os"
 )
 
@@ -28,7 +29,7 @@ func dbExists() bool {
 func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 	var lastHash []byte
 
-	bc.db.View(func(tx *bolt.Tx) error {
+	err := bc.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 		lastHash = b.Get([]byte("l"))
 
@@ -37,14 +38,18 @@ func (bc *Blockchain) MineBlock(transactions []*Transaction) {
 
 	block := NewBlock(transactions, lastHash)
 
-	bc.db.Update(func(tx *bolt.Tx) error {
+	err = bc.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
-		b.Put(block.Hash, block.Serialize())
-		b.Put([]byte("l"), block.Hash)
+		err = b.Put(block.Hash, block.Serialize())
+		err = b.Put([]byte("l"), block.Hash)
 		bc.tip = block.Hash
 
 		return nil
 	})
+
+	if err != nil {
+		log.Panic("DB Error")
+	}
 }
 
 func (bc *Blockchain) FindUnspentTransactions(address string) []Transaction {
@@ -137,15 +142,23 @@ func NewBlockchain(address string) *Blockchain {
 	}
 
 	var tip []byte
-	db, _ := bolt.Open(dbFile, 0600, nil)
+	db, err := bolt.Open(dbFile, 0600, nil)
 
-	db.Update(func(tx *bolt.Tx) error {
+	if err != nil {
+		log.Panic("I/O Error")
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 
 		tip = b.Get([]byte("l"))
 
 		return nil
 	})
+
+	if err != nil {
+		log.Panic("DB Error")
+	}
 
 	bc := Blockchain{tip, db}
 
@@ -160,19 +173,28 @@ func CreateBlockchain(address string) *Blockchain {
 
 	var tip []byte
 
-	db, _ := bolt.Open(dbFile, 0600, nil)
-	db.Update(func(tx *bolt.Tx) error {
+	db, err := bolt.Open(dbFile, 0600, nil)
+
+	if err != nil {
+		log.Panic("I/O Error")
+	}
+
+	err = db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
 
 		cbtx := NewCoinbaseTX(address, genesisCoinbaseData)
 		genesis := NewGenesisBlock(cbtx)
 		b, _ = tx.CreateBucket([]byte(blocksBucket))
-		b.Put(genesis.Hash, genesis.Serialize())
-		b.Put([]byte("l"), genesis.Hash)
+		err = b.Put(genesis.Hash, genesis.Serialize())
+		err = b.Put([]byte("l"), genesis.Hash)
 		tip = genesis.Hash
 
 		return nil
 	})
+
+	if err != nil {
+		log.Panic("DB Error")
+	}
 
 	bc := Blockchain{tip, db}
 

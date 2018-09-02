@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"math"
 	"math/big"
 )
@@ -47,7 +48,12 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 		data := pow.prepareData(nonce)
 		hash = sha256.Sum256(data)
 		fmt.Printf("\r%x", hash)
-		hashInt.SetBytes(hash[:])
+		err := hashInt.SetBytes(hash[:])
+
+		if err != nil {
+			log.Panic("SetBytes Error")
+		}
+
 		if hashInt.Cmp(pow.target) == -1 {
 			break
 		} else {
@@ -63,6 +69,11 @@ func (pow *ProofOfWork) Validate() bool {
 	var hashInt big.Int
 	data := pow.prepareData(pow.block.Nonce)
 	hash := sha256.Sum256(data)
-	hashInt.SetBytes(hash[:])
+	err := hashInt.SetBytes(hash[:])
+
+	if err != nil {
+		log.Panic("SetBytes Error")
+	}
+
 	return hashInt.Cmp(pow.target) == -1
 }
