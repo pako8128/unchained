@@ -57,6 +57,10 @@ func NewBlockchain() *Blockchain {
 	return &bc
 }
 
+func (bc *Blockchain) Close() {
+	bc.db.Close()
+}
+
 func (bc *Blockchain) Iterator() *BlockchainIterator {
 	bciter := BlockchainIterator{bc.tip, bc.db}
 
