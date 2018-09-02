@@ -1,15 +1,58 @@
 package unchained
 
+import "github.com/boltdb/bolt"
+
+const blocksBucket = "blocks"
+const dbFile = "./blocks.db"
+
 type Blockchain struct {
-	blocks []*Block
+	tip []byte
+	db  *bolt.DB
 }
 
 func (bc *Blockchain) AddBlock(data string) {
-	prev_block := bc.blocks[len(bc.blocks)-1]
-	new_block := NewBlock(data, prev_block.Hash)
-	bc.blocks = append(bc.blocks, new_block)
+	var lastHash []byte
+
+	err := bc.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		lastHash = b.Get([]byte("l"))
+
+		return nil
+	})
+
+	block := NewBlock(data, lastHash)
+
+	err = bc.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+		err = b.Put(block.Hash, block.Serialize())
+		err = b.Put([]byte("l"), block.Hash)
+		bc.tip = block.Hash
+
+		return nil
+	})
 }
 
 func NewBlockchain() *Blockchain {
-	return &Blockchain{[]*Block{NewGenesisBlock()}}
+	var tip []byte
+	db, err := bolt.Open(dbFile, 0600, nil)
+
+	err = db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blocksBucket))
+
+		if b == nil {
+			genesis := NewGenesisBlock()
+			b, err = tx.CreateBucket([]byte(blocksBucket))
+			err = b.Put(genesis.Hash, genesis.Serialize())
+			err = b.Put([]byte("l"), genesis.Hash)
+			tip = genesis.Hash
+		} else {
+			tip = b.Get([]byte("l"))
+		}
+
+		return nil
+	})
+
+	bc := Blockchain{tip, db}
+
+	return &bc
 }
