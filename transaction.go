@@ -1,6 +1,13 @@
 package unchained
 
-import "fmt"
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/gob"
+	"encoding/hex"
+	"fmt"
+	"log"
+)
 
 const subsidy = 10
 
@@ -35,6 +42,55 @@ func NewCoinbaseTX(to, data string) *Transaction {
 	return &tx
 }
 
-func (tx *Transaction) setID() {
+func NewUTXOTransaction(from, to string, amount int, bc *Blockchain) *Transaction {
+	var inputs []TXInput
+	var outputs []TXOutput
 
+	acc, validOutputs := bc.FindSpendableOutputs(from, amount)
+
+	if acc < amount {
+		log.Panic("ERROR: Not enough funds")
+	}
+
+	for txid, outs := range validOutputs {
+		txID, _ := hex.DecodeString(txid)
+
+		for _, out := range outs {
+			input := TXInput{txID, out, from}
+			inputs = append(inputs, input)
+		}
+	}
+
+	outputs = append(outputs, TXOutput{amount, to})
+	if acc > amount {
+		outputs = append(outputs, TXOutput{acc - amount, from})
+	}
+
+	tx := Transaction{nil, inputs, outputs}
+	tx.setID()
+
+	return &tx
+}
+
+func (tx *Transaction) setID() {
+	var encoded bytes.Buffer
+	var hash [32]byte
+
+	enc := gob.NewEncoder(&encoded)
+	enc.Encode(tx)
+
+	hash = sha256.Sum256(encoded.Bytes())
+	tx.ID = hash[:]
+}
+
+func (tx Transaction) isCoinbase() bool {
+	return len(tx.Vin) == 0 && len(tx.Vin[0].Txid) == 0 && tx.Vin[0].Vout == -1
+}
+
+func (in *TXInput) CanUnlockOutputWith(data string) bool {
+	return in.ScriptSig == data
+}
+
+func (out *TXOutput) CanBeUnlockedWith(data string) bool {
+	return out.ScriptPubKey == data
 }
