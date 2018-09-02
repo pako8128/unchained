@@ -5,12 +5,14 @@ import "github.com/boltdb/bolt"
 const blocksBucket = "blocks"
 const dbFile = "./blocks.db"
 
+const genesisCoinbaseData = "Hello, world!"
+
 type Blockchain struct {
 	tip []byte
 	db  *bolt.DB
 }
 
-func (bc *Blockchain) AddBlock(data string) {
+func (bc *Blockchain) AddBlock(transactions []*Transaction) {
 	var lastHash []byte
 
 	bc.db.View(func(tx *bolt.Tx) error {
@@ -20,7 +22,7 @@ func (bc *Blockchain) AddBlock(data string) {
 		return nil
 	})
 
-	block := NewBlock(data, lastHash)
+	block := NewBlock(transactions, lastHash)
 
 	bc.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blocksBucket))
@@ -32,7 +34,7 @@ func (bc *Blockchain) AddBlock(data string) {
 	})
 }
 
-func NewBlockchain() *Blockchain {
+func NewBlockchain(address string) *Blockchain {
 	var tip []byte
 	db, _ := bolt.Open(dbFile, 0600, nil)
 
@@ -40,7 +42,8 @@ func NewBlockchain() *Blockchain {
 		b := tx.Bucket([]byte(blocksBucket))
 
 		if b == nil {
-			genesis := NewGenesisBlock()
+			cbtx := NewCoinbaseTX(address, genesisCoinbaseData)
+			genesis := NewGenesisBlock(cbtx)
 			b, _ = tx.CreateBucket([]byte(blocksBucket))
 			b.Put(genesis.Hash, genesis.Serialize())
 			b.Put([]byte("l"), genesis.Hash)
